@@ -26,11 +26,10 @@ def missing(data,threshold):
 missing(df,0.8)#可以删除缺失率大于threshold的变量
 
 # SelectKBest可以依据相关性对特征进行选择，保留k个评分最高的特征
-clean_df = df[['attr_o','sinc_o','intel_o','fun_o','amb_o','shar_o','attr','sinc','intel','fun','amb','shar','samerace','int_corr','condtn','match']].copy()
+clean_df = df[['like_o','prob_o','met_o','imprace','date','go_out','attr3_s','sinc3_s','intel3_s','fun3_s','amb3_s','attr3_1','sinc3_1','intel3_1','fun3_1','amb3_1','attr_o','sinc_o','intel_o','fun_o','amb_o','shar_o','attr','sinc','intel','fun','amb','shar','samerace','int_corr','condtn','match']].copy()
 clean_df.dropna(inplace=True) #删除缺失值
-label_data = clean_df['match']#target
-#确定待选择的特征集
-feature_data = clean_df[['attr_o','sinc_o','intel_o','fun_o','amb_o','shar_o','attr','sinc','intel','fun','amb','shar','samerace','int_corr','condtn']]
+label_data = clean_df['match']
+feature_data = clean_df[['like_o','prob_o','met_o','imprace','date','go_out','attr3_s','sinc3_s','intel3_s','fun3_s','amb3_s','attr3_1','sinc3_1','intel3_1','fun3_1','amb3_1','attr_o','sinc_o','intel_o','fun_o','amb_o','shar_o','attr','sinc','intel','fun','amb','shar','samerace','int_corr','condtn']]
 
 def get_feature_selectkbest(feature_data, label_data,k):
     model = SelectKBest(f_classif, k)#选择k个最佳特征:分类使用f_classif，问题使用f_regression
@@ -53,7 +52,30 @@ def get_feature_selectkbest(feature_data, label_data,k):
     
     return k_best_features
 
-get_feature_selectkbest(feature_data, label_data,k = 10)
+get_feature_selectkbest(feature_data, label_data,k = 20)#保留20个特征
+
+'''结果
+['like_o',对方对我方的喜爱度
+ 'attr_o',对方对我方吸引力打分
+ 'fun_o',对方对我方幽默打分
+ 'attr',实验后给异性吸引力打分
+ 'fun',实验后给异性幽默打分
+ 'shar',实验后共同爱好打分（我方打）
+ 'shar_o',共同爱好打分（对方打）
+ 'prob_o',实验后你觉得对方有多大概率同意约会
+ 'sinc_o',对方对我方真诚打分
+ 'sinc',实验后给异性真诚打分
+ 'intel_o',对方对我方智慧打分
+ 'intel',实验后给异性智慧打分
+ 'amb_o',对方对我方有志向打分
+ 'amb',实验后给异性有志向打分
+ 'met_o',是否曾见过
+ 'fun3_1',给自己的幽默打分
+ 'imprace',种族一致的重要性
+ 'go_out',平时外出娱乐频率
+ 'attr3_1',给自己的吸引力打分
+ 'date']平时约会频率
+'''
 
 #基于随机森林模型的特征排序
 from sklearn.model_selection import cross_val_score, ShuffleSplit
@@ -70,6 +92,40 @@ indices = np.argsort(importance)[::-1]
 features = x.columns
 for f in range(x.shape[1]):
     print(("%2d) %- *s %f" % (f+1,10,features[f],importance[indices[f]])))
+   
+ '''结果：输出所有特征的重要性排序
+ 1) like_o     0.073827
+ 2) prob_o     0.066302
+ 3) met_o      0.059843
+ 4) imprace    0.058650
+ 5) date       0.058399
+ 6) go_out     0.047885
+ 7) attr3_s    0.046051
+ 8) sinc3_s    0.045471
+ 9) intel3_s   0.044812
+10) fun3_s     0.031674
+11) amb3_s     0.030995
+12) attr3_1    0.030929
+13) sinc3_1    0.030315
+14) intel3_1   0.027502
+15) fun3_1     0.026975
+16) amb3_1     0.025289
+17) attr_o     0.025062
+18) sinc_o     0.024906
+19) intel_o    0.024801
+20) fun_o      0.024594
+21) amb_o      0.024393
+22) shar_o     0.022928
+23) attr       0.022000
+24) sinc       0.021959
+25) intel      0.021627
+26) fun        0.020422
+27) amb        0.018717
+28) shar       0.017933
+29) samerace   0.009602
+30) int_corr   0.009180
+31) condtn     0.006960
+'''    
 
 #递归特征消除(RFE)，若采用的是Lasso/Ridge，正则化的回归是稳定的，那么RFE就是稳定的
 from sklearn.feature_selection import RFE
@@ -80,12 +136,21 @@ Y = label_data
  
 #Feature extraction
 model = LogisticRegression() 
-rfe = RFE(model, 10)#底层普通回归Linear Regression,保留10个变量
+rfe = RFE(model, 20)#底层普通回归Linear Regression,保留20个变量
 fit = rfe.fit(X, Y)
  
 print("Num Features: %d"% fit.n_features_) 
 print("Selected Features: %s"% fit.support_)#输出是否保留数组
 print("Feature Ranking: %s"% fit.ranking_)#输出特征重要性排序
+
+'''
+Feature Ranking: [ 1  1 12  1  6  1  9  1 11  1  1 10  8  4  1  7  1  1  2  1  1  3  1  5
+  1  1  1  1  1  1  1]留下排名1的20个特征
+人工整理后：
+['like_o','prob_o','imprace','go_out','sinc3_s','fun3_s','amb3_s','fun3_1',
+'attr_o','sinc_o','fun_o','amb_o','attr','intel','fun','amb','shar','samerace'同种族
+,'int_corr'双方看重的特质相关性,'condtn'选择是否受限。1同意再见面的人不超过对象的50%、2不限]
+'''
 
 #Python实现PCA
 import numpy as np
@@ -109,14 +174,18 @@ def pca(X,k):#k is the components you want
   return data
  
 X = feature_data
-outcome = pca(X,10)
+outcome = pca(X,20)
 print(outcome)
 
 ##用sklearn的PCA，比上面的方法更简单，结果相同
 from sklearn.decomposition import PCA
 import numpy as np
 X = feature_data
-pca=PCA(n_components=10)#保留10个主成分
+pca=PCA(n_components=20)#保留20个主成分
 pca.fit(X)
 reduce_feature_data = pca.transform(X)
 print(reduce_feature_data)
+
+'''
+reduce_feature_data.shape
+Out[73]: (2687, 20)'''
